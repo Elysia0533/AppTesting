@@ -51,11 +51,11 @@ AppTesting/
 │   ├── 05_Defect_Tracking_Log.md                 # Nhật ký lỗi & Truy vết bản vá (DEF-01..DEF-06)
 │   └── 06_ISO25010_Quality_Evaluation.md         # Đánh giá chất lượng theo mô hình ISO/IEC 25010
 ├── test/                                         # 42 tệp kiểm thử tự động (402 Unit/Widget/Integration tests)
-│   ├── auth_security_test.dart                   # Kiểm thử PBKDF2 SHA-256 & Legacy Migration (DEF-01)
+│   ├── sec_001_local_account_test.dart           # Kiểm thử PBKDF2 SHA-256 & Legacy Migration (DEF-01)
 │   ├── vbook_engine_channel_test.dart            # Kiểm thử cô lập Isolate JS & bắt lỗi (DEF-02)
 │   ├── explore_drive_race_test.dart              # Kiểm thử chống đua lệnh Generation Token (DEF-03)
 │   ├── plugin_loader_security_test.dart          # Kiểm thử chặn Path Traversal & Zip Bomb (DEF-04)
-│   ├── firestore_rules_test.dart                 # Kiểm thử phân quyền RBAC Firestore Rules (DEF-05)
+│   ├── firestore.rules.test.cjs                  # Kiểm thử phân quyền RBAC Firestore Rules (DEF-05)
 │   ├── local_manga_parser_test.dart              # Kiểm thử Hộp trắng bộ đọc Manga & chapter.json (DEF-06)
 │   ├── search_index_performance_test.dart        # Benchmark hiệu năng SQLite FFI 5.000 bản ghi
 │   ├── unified_search_screen_test.dart           # Kiểm thử giao diện đa độ phân giải & Text Scale
