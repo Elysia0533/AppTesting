@@ -1,0 +1,744 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import '../firebase_config.dart';
+import '../models/app_user.dart';
+import '../models/community_message.dart';
+import '../models/reading_marker.dart';
+import '../models/story.dart';
+
+class FirebaseBackendService {
+  static bool _initialized = false;
+  static bool _nativeAndroidConfigLoaded = false;
+
+  static bool get isConfigured =>
+      VBookFirebaseConfig.isConfigured || _nativeAndroidConfigLoaded;
+  static bool get isInitialized => _initialized;
+
+  static bool get _canTryNativeAndroidConfig =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  static FirebaseFirestore get _db => FirebaseFirestore.instance;
+  static firebase_auth.FirebaseAuth get _auth =>
+      firebase_auth.FirebaseAuth.instance;
+      
+  static final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId: VBookFirebaseConfig.webClientId.isEmpty ? null : VBookFirebaseConfig.webClientId,
+    scopes: [
+      'email',
+      'https://www.googleapis.com/auth/drive',
+    ],
+  );
+
+  static Future<String?> getGoogleDriveAccessToken() async {
+    if (!_initialized) return null;
+    final currentUser = _googleSignIn.currentUser;
+    if (currentUser != null) {
+      final auth = await currentUser.authentication;
+      return auth.accessToken;
+    }
+    // Try silently
+    try {
+      final account = await _googleSignIn.signInSilently();
+      if (account != null) {
+        final auth = await account.authentication;
+        return auth.accessToken;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Stream<String?> get idTokenUidChanges {
+    if (!_initialized) return const Stream<String?>.empty();
+    return _auth.idTokenChanges().map((user) => user?.uid);
+  }
+
+  static String? get currentAuthUserId {
+    if (!_initialized) return null;
+    return _auth.currentUser?.uid;
+  }
+
+  static firebase_auth.User? get currentUser {
+    if (!_initialized) return null;
+    return _auth.currentUser;
+  }
+
+  static Future<void> initialize() async {
+    _initialized = false;
+    _nativeAndroidConfigLoaded = false;
+
+    if (!VBookFirebaseConfig.isConfigured && !_canTryNativeAndroidConfig) {
+      debugPrint(VBookFirebaseConfig.configurationHelp);
+      debugPrint(
+        'Đồng bộ tài khoản chưa được cấu hình. Đăng nhập và chat sẽ tạm tắt trong bản chạy hiện tại.',
+      );
+      return;
+    }
+
+    try {
+      if (Firebase.apps.isEmpty) {
+        if (VBookFirebaseConfig.isConfigured) {
+          await Firebase.initializeApp(
+            options: VBookFirebaseConfig.currentPlatform,
+          );
+        } else {
+          await Firebase.initializeApp();
+        }
+      }
+      _nativeAndroidConfigLoaded =
+          !VBookFirebaseConfig.isConfigured && _canTryNativeAndroidConfig;
+      _initialized = true;
+    } catch (e) {
+      _initialized = false;
+      _nativeAndroidConfigLoaded = false;
+      if (!VBookFirebaseConfig.isConfigured) {
+        debugPrint(VBookFirebaseConfig.configurationHelp);
+      }
+      debugPrint('Không thể khởi tạo đồng bộ tài khoản (${e.runtimeType}).');
+    }
+  }
+
+  static void _ensureReady() {
+    if (!_initialized) {
+      throw Exception(
+        'Chưa bật đồng bộ tài khoản. Hãy kiểm tra cấu hình dịch vụ trước khi đăng nhập.',
+      );
+    }
+  }
+
+  static Future<Map<String, dynamic>?> readCurrentTokenClaims({
+    required bool forceRefresh,
+  }) async {
+    if (!_initialized) return null;
+    final user = _auth.currentUser;
+    if (user == null) return null;
+    final token = await user.getIdTokenResult(forceRefresh);
+    return token.claims;
+  }
+
+  static Future<bool> currentUserHasAdminClaim({
+    bool forceRefresh = false,
+  }) async {
+    try {
+      final claims = await readCurrentTokenClaims(forceRefresh: forceRefresh);
+      final value = claims?['admin'];
+      return value is bool && value == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<AppUser> register({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    _ensureReady();
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = credential.user;
+      if (user == null) {
+        throw Exception('Không thể tạo tài khoản mới. Vui lòng thử lại.');
+      }
+
+      await user.updateDisplayName(displayName);
+      await user.reload();
+      final refreshedUser = _auth.currentUser ?? user;
+      try {
+        await _upsertProfile(refreshedUser, displayName: displayName);
+      } catch (e) {
+        debugPrint('Lỗi cập nhật profile sau khi register: $e');
+      }
+      await refreshedUser.sendEmailVerification();
+      return await _appUserFromFirebase(refreshedUser);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      throw Exception(_authErrorMessage(e));
+    }
+  }
+
+  static Future<AppUser> login({
+    required String email,
+    required String password,
+  }) async {
+    _ensureReady();
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = credential.user;
+      if (user == null) {
+        throw Exception('Không thể mở phiên đăng nhập. Vui lòng thử lại.');
+      }
+
+      await user.reload();
+      final refreshedUser = _auth.currentUser ?? user;
+      if (!refreshedUser.emailVerified) {
+        await refreshedUser.sendEmailVerification();
+        throw Exception(
+          'Email chưa xác nhận. Hệ thống đã gửi lại link xác nhận vào email của bạn.',
+        );
+      }
+
+      await _refreshVerifiedToken(refreshedUser);
+      try {
+        await _upsertProfile(refreshedUser);
+      } catch (e) {
+        debugPrint('Lỗi cập nhật profile sau khi login: $e');
+      }
+      return await _appUserFromFirebase(refreshedUser);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      throw Exception(_authErrorMessage(e));
+    }
+  }
+
+  static Future<void> sendPasswordResetEmail({required String email}) async {
+    _ensureReady();
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      throw Exception(_authErrorMessage(e));
+    }
+  }
+
+  static Future<AppUser> updateProfile({
+    required String displayName,
+    String? avatarUrl,
+  }) async {
+    _ensureReady();
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('Cần đăng nhập để chỉnh sửa thông tin cá nhân.');
+    }
+
+    final name = displayName.trim();
+    if (name.isEmpty) {
+      throw Exception('Tên hiển thị không được để trống.');
+    }
+    if (name.length > 30) {
+      throw Exception('Tên hiển thị tối đa 30 ký tự.');
+    }
+
+    try {
+      await user.updateDisplayName(name);
+      if (avatarUrl != null) {
+        await user.updatePhotoURL(avatarUrl.trim());
+      }
+      await user.reload();
+      final refreshedUser = _auth.currentUser ?? user;
+      await _db.collection('users').doc(refreshedUser.uid).set({
+        'displayName': name,
+        'avatarUrl': avatarUrl?.trim() ?? refreshedUser.photoURL ?? '',
+        'emailVerified': refreshedUser.emailVerified,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      return await _appUserFromFirebase(refreshedUser);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      throw Exception(_authErrorMessage(e));
+    }
+  }
+
+  static Future<AppUser> loginWithGoogle() async {
+    _ensureReady();
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        throw Exception('Đăng nhập Google bị hủy bỏ.');
+      }
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final firebase_auth.AuthCredential credential =
+          firebase_auth.GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      final userCredential = await _auth.signInWithCredential(credential);
+      final user = userCredential.user;
+      if (user == null) {
+        throw Exception('Lỗi xác thực Google.');
+      }
+      try {
+        await _upsertProfile(user);
+      } catch (e) {
+        debugPrint('Lỗi cập nhật profile sau khi Google login: $e');
+      }
+      return await _appUserFromFirebase(user);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      throw Exception(_authErrorMessage(e));
+    } catch (e) {
+      debugPrint('Google Sign-In Error: $e');
+      throw Exception('Đăng nhập Google thất bại: $e');
+    }
+  }
+
+  static Future<AppUser> confirmEmailVerified({required String email}) async {
+    _ensureReady();
+    final user = _auth.currentUser;
+    if (user == null ||
+        (user.email ?? '').toLowerCase() != email.toLowerCase()) {
+      throw Exception(
+        'Hãy đăng nhập lại bằng email vừa đăng ký, sau đó bấm link xác nhận trong hộp thư.',
+      );
+    }
+
+    await user.reload();
+    final refreshedUser = _auth.currentUser ?? user;
+    if (!refreshedUser.emailVerified) {
+      throw Exception(
+        'Email vẫn chưa được xác nhận. Hãy mở email và bấm link xác nhận.',
+      );
+    }
+
+    await _refreshVerifiedToken(refreshedUser);
+    try {
+      await _upsertProfile(refreshedUser);
+    } catch (e) {
+      debugPrint('Lỗi cập nhật profile sau khi verify email: $e');
+    }
+    return _appUserFromFirebase(refreshedUser);
+  }
+
+  static Future<void> resendVerificationEmail({required String email}) async {
+    _ensureReady();
+    final user = _auth.currentUser;
+    if (user == null ||
+        (user.email ?? '').toLowerCase() != email.toLowerCase()) {
+      throw Exception(
+        'Hãy đăng nhập lại bằng email này để hệ thống gửi lại link xác nhận.',
+      );
+    }
+    await user.sendEmailVerification();
+  }
+
+  static Future<AppUser?> refreshCurrentUser() async {
+    if (!_initialized) return null;
+    final user = _auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      await user.reload();
+      final refreshedUser = _auth.currentUser;
+      if (refreshedUser == null || !refreshedUser.emailVerified) return null;
+      await _refreshVerifiedToken(refreshedUser);
+      await _upsertProfile(refreshedUser);
+      return await _appUserFromFirebase(refreshedUser);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      debugPrint('Không thể làm mới phiên đăng nhập: ${_authErrorMessage(e)}');
+      return null;
+    }
+  }
+
+  static Future<String?> currentSessionToken() async {
+    if (!_initialized) return null;
+    final user = _auth.currentUser;
+    if (user == null || !user.emailVerified) return null;
+    await _refreshVerifiedToken(user);
+    return user.uid;
+  }
+
+  static Future<void> logout() async {
+    if (_initialized) {
+      try {
+        await _googleSignIn.disconnect();
+      } catch (_) {}
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+      await _auth.signOut();
+    }
+  }
+
+  static Future<List<CommunityMessage>> fetchCommunityMessages() async {
+    _ensureReady();
+    final snapshot = await _db
+        .collection('community_messages')
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .get();
+
+    return snapshot.docs.reversed.map(_messageFromDoc).toList();
+  }
+
+  static Future<CommunityMessage> sendCommunityMessage(
+    String text, {
+    String attachmentType = '',
+    String attachmentPath = '',
+  }) async {
+    _ensureReady();
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('Cần đăng nhập và xác nhận email để gửi tin nhắn.');
+    }
+
+    await user.reload();
+    final refreshedUser = _auth.currentUser ?? user;
+    if (!refreshedUser.emailVerified) {
+      throw Exception('Cần đăng nhập và xác nhận email để gửi tin nhắn.');
+    }
+
+    await _refreshVerifiedToken(refreshedUser);
+    final appUser = await _appUserFromFirebase(refreshedUser);
+    if (text.trim().isEmpty && attachmentPath.trim().isEmpty) {
+      throw Exception('Tin nhắn hoặc tệp đính kèm không được để trống.');
+    }
+    if (attachmentPath.trim().isNotEmpty) {
+      throw Exception(
+        'Tin nhắn đính kèm trên cộng đồng đám mây chưa được hỗ trợ. '
+        'Vui lòng gửi tin nhắn văn bản.',
+      );
+    }
+
+    final data = {
+      'userId': appUser.id,
+      'displayName': appUser.displayName,
+      'avatarUrl': appUser.avatarUrl,
+      'text': text.trim(),
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    final ref = await _db.collection('community_messages').add(data);
+    final doc = await ref.get();
+    return _messageFromDoc(doc);
+  }
+
+  static Future<void> deleteCommunityMessage(String messageId) async {
+    _ensureReady();
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('Cần đăng nhập bằng tài khoản admin để xóa tin nhắn.');
+    }
+
+    await user.reload();
+    final refreshedUser = _auth.currentUser ?? user;
+    await _refreshVerifiedToken(refreshedUser);
+    final isAdmin = await currentUserHasAdminClaim();
+    if (!isAdmin) {
+      throw Exception('Tài khoản hiện tại không có quyền admin.');
+    }
+
+    try {
+      await _db.collection('community_messages').doc(messageId).delete();
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw Exception(
+          'Tài khoản hiện tại không có quyền xóa tin nhắn hoặc quyền vừa thay đổi.',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  @visibleForTesting
+  static Map<String, dynamic> buildLibraryStoryPayload(Story story) {
+    // createdAt is immutable; omitting it keeps existing records unchanged.
+    return {
+      'storyId': story.id,
+      'story': story.toJson(),
+      'savedChapterIndex': story.savedChapterIndex,
+      'totalChapters': story.totalChapters,
+      'scrollOffset': 0,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  static Future<void> syncLibraryBatch(List<Story> stories) async {
+    if (!_initialized || stories.isEmpty) return;
+    final user = _auth.currentUser;
+    if (user == null || !user.emailVerified) return;
+
+    final batch = _db.batch();
+    final colRef = _db.collection('users').doc(user.uid).collection('library');
+    
+    for (final story in stories) {
+      batch.set(colRef.doc(story.id), buildLibraryStoryPayload(story), SetOptions(merge: true));
+    }
+    
+    try {
+      await batch.commit();
+    } catch (e) {
+      debugPrint('FirebaseBackendService.syncLibraryBatch error: \$e');
+    }
+  }
+
+  static Future<void> syncStoryToLibrary(Story story) async {
+    if (!_initialized) return;
+    final user = _auth.currentUser;
+    if (user == null || !user.emailVerified) return;
+
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('library')
+        .doc(story.id)
+        .set(buildLibraryStoryPayload(story), SetOptions(merge: true));
+  }
+
+  static Future<void> syncProgress(
+    String storyId,
+    int chapterIndex, {
+    int? totalChapters,
+    double? scrollOffset,
+  }) async {
+    if (!_initialized) return;
+    final user = _auth.currentUser;
+    if (user == null || !user.emailVerified) return;
+
+    final payload = <String, dynamic>{
+      'savedChapterIndex': chapterIndex,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'lastReadAt': FieldValue.serverTimestamp(),
+    };
+    if (totalChapters != null) {
+      payload['totalChapters'] = totalChapters;
+    }
+    if (scrollOffset != null) {
+      payload['scrollOffset'] = scrollOffset;
+    }
+
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('library')
+        .doc(storyId)
+        .set(payload, SetOptions(merge: true));
+  }
+
+  static Future<void> removeStoryFromLibrary(String storyId) async {
+    if (!_initialized) return;
+    final user = _auth.currentUser;
+    if (user == null || !user.emailVerified) return;
+
+    await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('library')
+        .doc(storyId)
+        .delete();
+  }
+
+  @visibleForTesting
+  static Story? parseCloudLibraryStory(Map<String, dynamic> data) {
+    try {
+      final rawStory = data['story'];
+      if (rawStory is! Map) {
+        debugPrint('Skipping malformed cloud library record (invalid story).');
+        return null;
+      }
+      final story = Story.fromJson(Map<String, dynamic>.from(rawStory));
+      return story.copyWith(
+        savedChapterIndex: _readInt(data['savedChapterIndex']),
+        totalChapters: _readInt(data['totalChapters'], story.totalChapters),
+      );
+    } catch (error) {
+      debugPrint(
+        'Skipping malformed cloud library record (${error.runtimeType}).',
+      );
+      return null;
+    }
+  }
+
+  static Future<List<Story>> fetchCloudLibraryStories() async {
+    if (!_initialized) return [];
+    final user = _auth.currentUser;
+    if (user == null || !user.emailVerified) return [];
+
+    final snapshot = await _db
+        .collection('users')
+        .doc(user.uid)
+        .collection('library')
+        .orderBy('updatedAt', descending: true)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => parseCloudLibraryStory(doc.data()))
+        .whereType<Story>()
+        .toList();
+  }
+
+  static Future<void> _upsertProfile(
+    firebase_auth.User user, {
+    String? displayName,
+  }) async {
+    final ref = _db.collection('users').doc(user.uid);
+    final snapshot = await ref.get();
+    final existing = snapshot.data();
+    final email = user.email ?? '';
+    final role = existing?['role']?.toString() ?? 'user';
+    final name = (displayName ?? user.displayName ?? email.split('@').first)
+        .trim();
+
+    final data = {
+      'uid': user.uid,
+      'email': email,
+      'displayName': name.isEmpty ? email.split('@').first : name,
+      'avatarUrl': user.photoURL ?? '',
+      'role': role,
+      'emailVerified': user.emailVerified,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (snapshot.exists) {
+      await ref.set(data, SetOptions(merge: true));
+    } else {
+      await ref.set({...data, 'createdAt': FieldValue.serverTimestamp()});
+    }
+  }
+
+  static Future<void> _refreshVerifiedToken(firebase_auth.User user) async {
+    if (!user.emailVerified) return;
+    await user.getIdToken(true);
+  }
+
+  static Future<AppUser> _appUserFromFirebase(firebase_auth.User user) async {
+    Map<String, dynamic>? profile;
+    try {
+      final doc = await _db.collection('users').doc(user.uid).get();
+      profile = doc.data();
+    } catch (_) {}
+
+    final email = user.email ?? profile?['email']?.toString() ?? '';
+    final displayName =
+        profile?['displayName']?.toString() ??
+        user.displayName ??
+        email.split('@').first;
+    final role = profile?['role']?.toString() ?? 'user';
+
+    return AppUser(
+      id: user.uid,
+      email: email,
+      displayName: displayName,
+      avatarUrl: profile?['avatarUrl']?.toString() ?? user.photoURL ?? '',
+      role: role,
+      emailVerified: user.emailVerified,
+    );
+  }
+
+  static CommunityMessage _messageFromDoc(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data() ?? {};
+    return CommunityMessage.fromJson({
+      'id': doc.id,
+      'userId': data['userId'],
+      'displayName': data['displayName'],
+      'avatarUrl': data['avatarUrl'],
+      'text': data['text'],
+      'createdAt': _timestampToIso(data['createdAt']),
+      'attachmentType': data['attachmentType'],
+      'attachmentPath': data['attachmentPath'],
+    });
+  }
+
+  static String _timestampToIso(dynamic value) {
+    if (value is Timestamp) return value.toDate().toIso8601String();
+    final text = value?.toString() ?? '';
+    if (text.trim().isNotEmpty) return text;
+    return DateTime.now().toIso8601String();
+  }
+
+  static Future<void> syncBookmarksBatch(List<ReadingMarker> markers) async {
+    if (!_initialized || markers.isEmpty) return;
+    final user = _auth.currentUser;
+    if (user == null) return;
+    
+    final batch = _db.batch();
+    final colRef = _db.collection('users').doc(user.uid).collection('bookmarks');
+    
+    for (final marker in markers) {
+      batch.set(colRef.doc(marker.id), marker.toJson(), SetOptions(merge: true));
+    }
+    
+    try {
+      await batch.commit();
+    } catch (e) {
+      debugPrint('FirebaseBackendService.syncBookmarksBatch error: \$e');
+    }
+  }
+
+  static Future<void> saveCloudBookmark(ReadingMarker marker) async {
+    if (!_initialized) return;
+    final user = _auth.currentUser;
+    if (user == null) return;
+    try {
+      await _db
+          .collection('users')
+          .doc(user.uid)
+          .collection('bookmarks')
+          .doc(marker.id)
+          .set(marker.toJson(), SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('FirebaseBackendService.saveCloudBookmark error: $e');
+    }
+  }
+
+  static Future<void> removeCloudBookmark(String bookmarkId) async {
+    if (!_initialized) return;
+    final user = _auth.currentUser;
+    if (user == null) return;
+    try {
+      await _db
+          .collection('users')
+          .doc(user.uid)
+          .collection('bookmarks')
+          .doc(bookmarkId)
+          .delete();
+    } catch (e) {
+      debugPrint('FirebaseBackendService.removeCloudBookmark error: $e');
+    }
+  }
+
+  static Future<List<ReadingMarker>> fetchCloudBookmarks({
+    String? storyId,
+  }) async {
+    if (!_initialized) return [];
+    final user = _auth.currentUser;
+    if (user == null) return [];
+    try {
+      Query query = _db
+          .collection('users')
+          .doc(user.uid)
+          .collection('bookmarks');
+      if (storyId != null && storyId.isNotEmpty) {
+        query = query.where('storyId', isEqualTo: storyId);
+      }
+      final snapshot = await query.get();
+      return snapshot.docs
+          .map((doc) {
+            try {
+              return ReadingMarker.fromJson(doc.data() as Map<String, dynamic>);
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<ReadingMarker>()
+          .toList();
+    } catch (e) {
+      debugPrint('FirebaseBackendService.fetchCloudBookmarks error: $e');
+      return [];
+    }
+  }
+
+  static int _readInt(dynamic value, [int fallback = 0]) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
+  }
+
+  static String _authErrorMessage(firebase_auth.FirebaseAuthException e) {
+    return switch (e.code) {
+      'email-already-in-use' => 'Email này đã được đăng ký.',
+      'invalid-email' => 'Email không hợp lệ.',
+      'weak-password' => 'Mật khẩu quá yếu, hãy dùng ít nhất 6 ký tự.',
+      'user-not-found' => 'Không tìm thấy tài khoản với email này.',
+      'wrong-password' => 'Mật khẩu không đúng.',
+      'invalid-credential' => 'Email hoặc mật khẩu không đúng.',
+      'too-many-requests' => 'Đăng nhập quá nhiều lần. Hãy thử lại sau.',
+      _ => e.message ?? 'Lỗi đăng nhập: ${e.code}',
+    };
+  }
+}

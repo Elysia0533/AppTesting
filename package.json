@@ -1,0 +1,21 @@
+{
+  "name": "online-book-firestore-rules-tests",
+  "private": true,
+  "scripts": {
+    "audit:community-attachments": "node scripts/audit_community_attachments.cjs",
+    "admin:set-claim": "node scripts/set_admin_claim.cjs",
+    "test:admin-claim-script": "mocha test/set_admin_claim_script.test.cjs --timeout 30000",
+    "test:audit-community-attachments:unit": "mocha test/community_attachment_audit.test.cjs --timeout 30000",
+    "test:audit-community-attachments": "node scripts/run_firestore_emulator_tests.cjs attachments",
+    "test:rules": "mocha test/firestore.rules.test.cjs --timeout 30000",
+    "test:firestore-rules": "node scripts/run_firestore_emulator_tests.cjs rules",
+    "test:sec-004c": "node scripts/run_firestore_emulator_tests.cjs sec-004c"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase": "^12.17.1",
+    "firebase-admin": "^13.6.0",
+    "firebase-tools": "^15.26.0",
+    "mocha": "^11.7.5"
+  }
+}

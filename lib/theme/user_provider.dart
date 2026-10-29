@@ -1,0 +1,325 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/app_user.dart';
+import '../services/admin_claim_reader.dart';
+import '../services/api_service.dart';
+import '../services/firebase_backend_service.dart';
+
+class UserProvider extends ChangeNotifier {
+  static const _nameKey = 'user_name';
+  static const _avatarColorKey = 'user_avatar_color';
+
+  AppUser? _user;
+  String _name = '';
+  String _id = '';
+  String _email = '';
+  String _role = 'user';
+  String _token = '';
+  String _avatarUrl = '';
+  int _avatarColorValue = 0xFF4CAF50;
+  final AdminClaimReader _adminClaimReader;
+  StreamSubscription<String?>? _adminClaimSubscription;
+  StreamSubscription<String?>? _sessionSubscription;
+  AdminClaimStatus _adminClaimStatus = AdminClaimStatus.nonAdmin;
+  String _adminClaimError = '';
+  int _adminClaimRequestId = 0;
+
+  String get name => _name;
+  String get id => _id;
+  String get email => _email;
+  String get role => _role;
+  String get token => _token;
+  String get avatarUrl => _avatarUrl;
+  bool get isLoggedIn => _user != null && _token.isNotEmpty;
+  bool get isAdmin => _adminClaimStatus == AdminClaimStatus.admin;
+  AdminClaimStatus get adminClaimStatus => _adminClaimStatus;
+  bool get isAdminLoading => _adminClaimStatus == AdminClaimStatus.loading;
+  bool get hasAdminClaimError => _adminClaimStatus == AdminClaimStatus.error;
+  String get adminClaimError => _adminClaimError;
+  bool get emailVerified => _user?.emailVerified ?? false;
+  Color get avatarColor => Color(_avatarColorValue);
+
+  UserProvider({AdminClaimReader? adminClaimReader})
+    : _adminClaimReader = adminClaimReader ?? const FirebaseAdminClaimReader() {
+    _startAdminClaimListener();
+    _startSessionListener();
+    _load();
+  }
+
+  void _startSessionListener() {
+    _sessionSubscription?.cancel();
+    _sessionSubscription = FirebaseBackendService.idTokenUidChanges.listen((uid) async {
+      if (uid == null) {
+        if (isLoggedIn) {
+          logout();
+        }
+      } else {
+        final fbUser = FirebaseBackendService.currentUser;
+        if (fbUser != null && !fbUser.emailVerified) {
+          await FirebaseBackendService.logout();
+          return;
+        }
+        if (_user == null || _user!.id != uid) {
+          await refreshSession();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _adminClaimSubscription?.cancel();
+    _sessionSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    _user = await ApiService.getSavedUser();
+    _token = await ApiService.getSavedAuthToken() ?? '';
+    _id = _user?.id ?? '';
+    _name = _user?.displayName ?? prefs.getString(_nameKey) ?? '';
+    _email = _user?.email ?? '';
+    _role = _user?.role ?? 'user';
+    _avatarUrl = _user?.avatarUrl ?? '';
+    _avatarColorValue = prefs.getInt(_avatarColorKey) ?? 0xFF4CAF50;
+    notifyListeners();
+
+    await refreshSession();
+  }
+
+  void _startAdminClaimListener() {
+    _adminClaimSubscription?.cancel();
+    _adminClaimSubscription = _adminClaimReader.userIdChanges.listen(
+      (uid) {
+        if (uid == null || uid.isEmpty) {
+          _setAdminClaimStatus(AdminClaimStatus.nonAdmin);
+          return;
+        }
+        unawaited(_readAdminClaimFor(uid, forceRefresh: false));
+      },
+      onError: (_) {
+        _setAdminClaimStatus(
+          AdminClaimStatus.error,
+          error: 'Không thể đọc quyền truy cập.',
+        );
+      },
+    );
+
+    final currentUid = _adminClaimReader.currentUserId;
+    if (currentUid == null || currentUid.isEmpty) {
+      _setAdminClaimStatus(AdminClaimStatus.nonAdmin, notify: false);
+    } else {
+      unawaited(_readAdminClaimFor(currentUid, forceRefresh: false));
+    }
+  }
+
+  Future<void> _readAdminClaimFor(
+    String uid, {
+    required bool forceRefresh,
+  }) async {
+    final requestId = ++_adminClaimRequestId;
+    _setAdminClaimStatus(AdminClaimStatus.loading);
+    try {
+      final claims = await _adminClaimReader.readClaims(
+        forceRefresh: forceRefresh,
+      );
+      if (requestId != _adminClaimRequestId ||
+          _adminClaimReader.currentUserId != uid) {
+        return;
+      }
+      _setAdminClaimStatus(
+        hasBooleanAdminClaim(claims)
+            ? AdminClaimStatus.admin
+            : AdminClaimStatus.nonAdmin,
+      );
+    } catch (_) {
+      if (requestId != _adminClaimRequestId ||
+          _adminClaimReader.currentUserId != uid) {
+        return;
+      }
+      _setAdminClaimStatus(
+        AdminClaimStatus.error,
+        error: 'Không thể đọc quyền truy cập.',
+      );
+    }
+  }
+
+  void _setAdminClaimStatus(
+    AdminClaimStatus status, {
+    String error = '',
+    bool notify = true,
+  }) {
+    if (status == AdminClaimStatus.nonAdmin) {
+      _adminClaimRequestId++;
+    }
+    _adminClaimStatus = status;
+    _adminClaimError = status == AdminClaimStatus.error ? error : '';
+    if (notify) notifyListeners();
+  }
+
+  Future<void> refreshAdminClaim() async {
+    await _syncAdminClaimFromCurrentUser(forceRefresh: true);
+  }
+
+  Future<void> _syncAdminClaimFromCurrentUser({
+    required bool forceRefresh,
+  }) async {
+    final uid = _adminClaimReader.currentUserId;
+    if (uid == null || uid.isEmpty) {
+      _setAdminClaimStatus(AdminClaimStatus.nonAdmin);
+      return;
+    }
+    await _readAdminClaimFor(uid, forceRefresh: forceRefresh);
+  }
+
+  Future<RegisterResult> registerWithBackend({
+    required String email,
+    required String password,
+    required String displayName,
+    required int colorValue,
+  }) async {
+    final result = await ApiService.registerWithBackend(
+      email: email,
+      password: password,
+      displayName: displayName,
+    );
+    if (!result.emailVerificationRequired) {
+      await _setBackendUser(result.user, colorValue);
+    }
+    return result;
+  }
+
+  Future<void> loginWithBackend({
+    required String email,
+    required String password,
+    required int colorValue,
+  }) async {
+    final user = await ApiService.loginWithBackend(
+      email: email,
+      password: password,
+    );
+    await _setBackendUser(user, colorValue);
+  }
+
+  Future<void> loginWithGoogle({required int colorValue}) async {
+    final user = await ApiService.loginWithGoogle();
+    await _setBackendUser(user, colorValue);
+  }
+
+  Future<void> sendPasswordResetEmail(String email) {
+    return ApiService.sendPasswordResetEmail(email: email);
+  }
+
+  Future<void> updateProfile({
+    required String displayName,
+    required int colorValue,
+    String avatarUrl = '',
+  }) async {
+    final user = await ApiService.updateUserProfile(
+      displayName: displayName,
+      avatarColorValue: colorValue,
+      avatarUrl: avatarUrl,
+    );
+    _user = user;
+    _id = user.id;
+    _name = user.displayName;
+    _email = user.email;
+    _role = user.role;
+    _avatarUrl = user.avatarUrl;
+    _avatarColorValue = colorValue;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_nameKey, _name);
+    await prefs.setInt(_avatarColorKey, colorValue);
+    notifyListeners();
+  }
+
+  Future<void> verifyEmailWithBackend({
+    required String email,
+    required String code,
+    required int colorValue,
+  }) async {
+    final user = await ApiService.verifyEmailWithBackend(
+      email: email,
+      code: code,
+    );
+    await _setBackendUser(user, colorValue);
+  }
+
+  Future<EmailVerificationResult> resendVerificationCode(String email) {
+    return ApiService.resendVerificationCode(email: email);
+  }
+
+  Future<void> _setBackendUser(AppUser user, int colorValue) async {
+    _user = user;
+    _token = await ApiService.getSavedAuthToken() ?? '';
+    _id = user.id;
+    _name = user.displayName;
+    _email = user.email;
+    _role = user.role;
+    _avatarUrl = user.avatarUrl;
+    _avatarColorValue = colorValue;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_nameKey, _name);
+    await prefs.setInt(_avatarColorKey, colorValue);
+    notifyListeners();
+    unawaited(ApiService.syncLocalDataToCloud());
+    unawaited(ApiService.mergeCloudLibraryIntoLocal());
+    unawaited(_syncAdminClaimFromCurrentUser(forceRefresh: false));
+  }
+
+  Future<void> refreshSession() async {
+    final refreshedUser = await ApiService.refreshCurrentUser();
+    if (refreshedUser == null) return;
+
+    _user = refreshedUser;
+    _token = await ApiService.getSavedAuthToken() ?? _token;
+    _id = refreshedUser.id;
+    _name = refreshedUser.displayName;
+    _email = refreshedUser.email;
+    _role = refreshedUser.role;
+    _avatarUrl = refreshedUser.avatarUrl;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_nameKey, _name);
+    await ApiService.mergeCloudLibraryIntoLocal();
+    await _syncAdminClaimFromCurrentUser(forceRefresh: false);
+    notifyListeners();
+  }
+
+  Future<void> logout() async {
+    _setAdminClaimStatus(AdminClaimStatus.nonAdmin);
+    await ApiService.logoutBackend();
+    _user = null;
+    _id = '';
+    _name = '';
+    _email = '';
+    _role = 'user';
+    _token = '';
+    _avatarUrl = '';
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_nameKey);
+    await prefs.remove(_avatarColorKey);
+    notifyListeners();
+  }
+
+  String get initials {
+    if (_name.isEmpty) return '?';
+    final parts = _name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    }
+    return _name[0].toUpperCase();
+  }
+
+  static const List<Map<String, dynamic>> avatarColors = [
+    {'label': 'Xanh lá', 'value': 0xFF4CAF50},
+    {'label': 'Xanh dương', 'value': 0xFF2196F3},
+    {'label': 'Tím', 'value': 0xFF9C27B0},
+    {'label': 'Cam', 'value': 0xFFFF9800},
+    {'label': 'Đỏ', 'value': 0xFFF44336},
+    {'label': 'Xanh ngọc', 'value': 0xFF009688},
+  ];
+}
