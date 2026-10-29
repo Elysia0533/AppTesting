@@ -19,8 +19,9 @@ Kho lưu trữ hồ sơ kiểm định, tài liệu thiết kế kiểm thử (c
 | **Giảng viên hướng dẫn** | **TS. Trịnh Thanh Bình** |
 | **Sinh viên thực hiện** | **Trần Tiến Đức** |
 | **Mã số sinh viên** | **`23010777`** |
-| **Hình thức thực hiện** | Cá nhân (Độc lập) |
-| **Đối tượng kiểm thử (SUT)** | Ứng dụng đọc sách/truyện đa định dạng **vBook Reader** (`v1.0.0` Alpha $ightarrow$ `v1.1.0+2` Release) |
+| **Hình thức thực hiện** | Cá nhân |
+| **Đối tượng kiểm thử (SUT)** | Ứng dụng đọc sách/truyện đa định dạng **vBook Reader** (`v1.0.0` Alpha $
+ightarrow$ `v1.1.0+2` Release) |
 
 ---
 
@@ -28,12 +29,14 @@ Kho lưu trữ hồ sơ kiểm định, tài liệu thiết kế kiểm thử (c
 
 Toàn bộ tài liệu đặc tả kiểm thử theo chuẩn **IEEE 829** và **ISO/IEC 25010** được tổ chức tại thư mục [`docs/`](./docs):
 
-1. 📋 **[`01_Test_Plan_IEEE829.md`](./docs/01_Test_Plan_IEEE829.md)**: Kế hoạch kiểm thử phần mềm (Mục tiêu, Phạm vi In-scope/Out-of-scope, Lịch trình, Tài nguyên, Chiến lược kiểm thử 4 tầng, Tiêu chí Entry/Exit/Acceptance).
-2. 🧩 **[`02_Test_Design_Specification.md`](./docs/02_Test_Design_Specification.md)**: Thiết kế ca kiểm thử Hộp đen (*Phân vùng tương đương EP, Giá trị biên BVA, Bảng quyết định Decision Table, Chuyển trạng thái State Transition*) và Hộp trắng (*Đồ thị luồng điều khiển CFG, Độ phức tạp Cyclomatic $V(G)=6$, Basis Paths*).
-3. 🔗 **[`03_Requirements_Traceability_Matrix.md`](./docs/03_Requirements_Traceability_Matrix.md)**: Ma trận truy vết yêu cầu (RTM) ánh xạ 100% giữa 13 Use Case (`UC-C1` $ightarrow$ `UC-A1`), 55 Ca kiểm thử hệ thống và 42 tệp Unit/Widget/Integration Test.
-4. ✅ **[`04_System_Test_Cases.md`](./docs/04_System_Test_Cases.md)** & **[`04_System_Test_Cases.csv`](./docs/04_System_Test_Cases.csv)**: Đặc tả chi tiết và kết quả thực thi 55 Ca kiểm thử hệ thống (`TC_FUNC_01..27`, `TC_SEC_01..13`, `TC_PERF_01..07`, `TC_UI_01..04`, `TC_AUTO_01..04`).
-5. 🐞 **[`05_Defect_Tracking_Log.md`](./docs/05_Defect_Tracking_Log.md)**: Nhật ký quản lý vòng đời lỗi và phân tích nguyên nhân gốc rễ cho 6 Defect phát hiện ở Vòng 1 (`DEF-01` $ightarrow$ `DEF-06`).
-6. 🏆 **[`06_ISO25010_Quality_Evaluation.md`](./docs/06_ISO25010_Quality_Evaluation.md)**: Báo cáo tổng kết kiểm thử và đánh giá 8 đặc tính chất lượng theo tiêu chuẩn quốc tế **ISO/IEC 25010**.
+1. **[`01_Test_Plan_IEEE829.md`](./docs/01_Test_Plan_IEEE829.md)**: Kế hoạch kiểm thử phần mềm (Mục tiêu, Phạm vi In-scope/Out-of-scope, Lịch trình, Tài nguyên, Chiến lược kiểm thử 4 tầng, Tiêu chí Entry/Exit/Acceptance).
+2. **[`02_Test_Design_Specification.md`](./docs/02_Test_Design_Specification.md)**: Thiết kế ca kiểm thử Hộp đen (*Phân vùng tương đương EP, Giá trị biên BVA, Bảng quyết định Decision Table, Chuyển trạng thái State Transition*) và Hộp trắng (*Đồ thị luồng điều khiển CFG, Độ phức tạp Cyclomatic $V(G)=6$, Basis Paths*).
+3. **[`03_Requirements_Traceability_Matrix.md`](./docs/03_Requirements_Traceability_Matrix.md)**: Ma trận truy vết yêu cầu (RTM) ánh xạ 100% giữa 13 Use Case (`UC-C1` $
+ightarrow$ `UC-A1`), 55 Ca kiểm thử hệ thống và 42 tệp Unit/Widget/Integration Test.
+4. **[`04_System_Test_Cases.md`](./docs/04_System_Test_Cases.md)** & **[`04_System_Test_Cases.csv`](./docs/04_System_Test_Cases.csv)**: Đặc tả chi tiết và kết quả thực thi 55 Ca kiểm thử hệ thống (`TC_FUNC_01..27`, `TC_SEC_01..13`, `TC_PERF_01..07`, `TC_UI_01..04`, `TC_AUTO_01..04`).
+5. **[`05_Defect_Tracking_Log.md`](./docs/05_Defect_Tracking_Log.md)**: Nhật ký quản lý vòng đời lỗi và phân tích nguyên nhân gốc rễ cho 6 Defect phát hiện ở Vòng 1 (`DEF-01` $
+ightarrow$ `DEF-06`).
+6. **[`06_ISO25010_Quality_Evaluation.md`](./docs/06_ISO25010_Quality_Evaluation.md)**: Báo cáo tổng kết kiểm thử và đánh giá 8 đặc tính chất lượng theo tiêu chuẩn quốc tế **ISO/IEC 25010**.
 
 ---
 
