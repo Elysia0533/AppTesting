@@ -1,4 +1,4 @@
-# Miscellaneous
+﻿# Miscellaneous
 *.class
 *.log
 *.pyc
@@ -73,5 +73,4 @@ env.json
 *.zip
 *.apk
 
-# Keep local agent/project documents out of the application repository.
-/docs/*
+*.docx

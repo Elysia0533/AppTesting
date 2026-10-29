@@ -1,0 +1,63 @@
+# DANH MỤC 55 CA KIỂM THỬ HỆ THỐNG (SYSTEM TEST CASES)
+
+- **Tổng số kịch bản kiểm thử hệ thống:** `55` (`27` Chức năng + `13` Bảo mật + `7` Hiệu năng + `4` Giao diện + `4` Tự động hóa)
+- **Tổng số bài kiểm thử tự động (`flutter test`):** `402` test cases trên `42` tệp test suite
+- **Kết quả Vòng 2 (Release `v1.1.0+2`):** **100% Passed (`55/55` System TCs & `402/402` Automated Tests)**
+
+| Nhóm | Mã TC | Mã UC | Mô tả ca kiểm thử | Các bước thực hiện | Kết quả thực tế & Kỳ vọng | Trạng thái |
+| :--- | :-: | :-: | :--- | :--- | :--- | :-: |
+| Chức năng | `TC_FUNC_01` | `UC-U1` | Đăng ký tài khoản người dùng mới hợp lệ | Vào Cá nhân -> Đăng ký -> Nhập email, mật khẩu >= 6 ký tự -> Bấm Đăng ký | Tài khoản tạo thành công, mật khẩu lưu cục bộ băm PBKDF2 an toàn | **Passed** |
+| Chức năng | `TC_FUNC_02` | `UC-U1` | Đăng ký với địa chỉ email đã tồn tại | Mở form Đăng ký -> Nhập email đã tồn tại -> Bấm Đăng ký | Từ chối đăng ký và báo lỗi 'Email đã được sử dụng' | **Passed** |
+| Chức năng | `TC_FUNC_03` | `UC-U1` | Đăng ký với mật khẩu ngắn tại biên (< 6 ký tự) | Mở form Đăng ký -> Nhập mật khẩu 5 ký tự ('12345') -> Bấm Đăng ký | Chặn gửi form và báo lỗi 'Mật khẩu phải từ 6 ký tự' | **Passed** |
+| Chức năng | `TC_FUNC_04` | `UC-C1` | Đăng nhập với tài khoản hợp lệ | Vào Cá nhân -> Đăng nhập -> Nhập đúng email và mật khẩu -> Bấm Đăng nhập | Xác thực thành công, hiển thị đúng tên và hồ sơ người dùng | **Passed** |
+| Chức năng | `TC_FUNC_05` | `UC-C1` | Đăng nhập thất bại khi nhập sai mật khẩu | Vào Cá nhân -> Đăng nhập -> Nhập email đúng, mật khẩu sai | Từ chối đăng nhập và báo lỗi 'Mật khẩu không đúng' | **Passed** |
+| Chức năng | `TC_FUNC_06` | `UC-C2` | Cập nhật thông tin hồ sơ cá nhân (Tên, Avatar) | Vào Cá nhân -> Chỉnh sửa hồ sơ -> Đổi tên hiển thị (1-30 ký tự) và màu avatar -> Lưu | Cập nhật thành công, đồng bộ tên và avatar mới lên giao diện | **Passed** |
+| Chức năng | `TC_FUNC_07` | `UC-U9` | Nhập sách từ bộ nhớ máy (EPUB/PDF/TXT/Manga) | Tại Kệ sách, bấm icon (+) -> Chọn tệp EPUB/PDF/TXT hoặc tệp chapter.json | Phân tích cấu trúc thành công, sách hiển thị trên Kệ sách kèm ảnh bìa | **Passed** |
+| Chức năng | `TC_FUNC_08` | `UC-U4` | Tìm kiếm sách trong Kệ sách cá nhân | Bấm icon Tìm kiếm tại Kệ sách -> Nhập từ khóa tên sách | SQLite lọc và hiển thị đúng các cuốn sách khớp từ khóa tức thì (< 50ms) | **Passed** |
+| Chức năng | `TC_FUNC_09` | `UC-U9` | Xóa sách khỏi Kệ sách cá nhân | Mở menu tại cuốn sách -> Chọn 'Xóa khỏi kệ sách' và xác nhận | Bản ghi sách được xóa sạch khỏi Kệ sách | **Passed** |
+| Chức năng | `TC_FUNC_10` | `UC-U9` | Chuyển đổi bố cục Kệ sách Lưới và Danh sách | Tại Kệ sách, bấm nút chuyển đổi chế độ hiển thị Grid / List | Bố cục Kệ sách chuyển đổi mượt mà giữa Lưới và Danh sách | **Passed** |
+| Chức năng | `TC_FUNC_11` | `UC-U10` | Khôi phục đọc tiếp từ vị trí đang đọc dở | Đọc sách đến vị trí bất kỳ rồi thoát -> Mở lại cuốn sách đó | Tự động cuộn đến đúng chương và vị trí đọc đã lưu trước đó | **Passed** |
+| Chức năng | `TC_FUNC_12` | `UC-U4` | Tìm kiếm tiếng Việt không dấu và có dấu | Thêm sách có dấu tiếng Việt -> Tìm kiếm bằng từ khóa không dấu | Tìm kiếm chính xác dù gõ có dấu hay không dấu | **Passed** |
+| Chức năng | `TC_FUNC_13` | `UC-U3` | Tải danh mục sách từ đám mây Google Drive | Mở tab Khám phá -> Chờ nạp danh mục từ Google Drive | Hiển thị đầy đủ danh sách truyện Drive với ảnh bìa và số chương | **Passed** |
+| Chức năng | `TC_FUNC_14` | `UC-U3` | Lọc danh sách truyện theo tác giả và thể loại | Tại tab Khám phá, chọn bộ lọc Thể loại (Action, Romance...) | Chỉ hiển thị các cuốn sách thuộc đúng thể loại đã chọn | **Passed** |
+| Chức năng | `TC_FUNC_15` | `UC-U5` | Xem thông tin chi tiết truyện trên Google Drive | Chạm vào một cuốn sách tại tab Khám phá | Hiển thị màn hình chi tiết gồm mô tả, tác giả, số chương và nút Đọc/Lưu | **Passed** |
+| Chức năng | `TC_FUNC_16` | `UC-U7` | Tải sách EPUB / chương truyện về máy đọc ngoại tuyến | Bấm 'Lưu về máy' / 'Tải xuống' -> Theo dõi tiến trình tải | Tải hoàn tất 100%, sách tự động thêm vào Kệ sách đọc offline | **Passed** |
+| Chức năng | `TC_FUNC_17` | `UC-U3` | Chống đua lệnh khi chuyển nhanh thư mục Drive | Bấm chuyển liên tiếp giữa các thư mục/nguồn khác nhau | Generation Token hủy phản hồi cũ trả về muộn, không bị ghi đè | **Passed** |
+| Chức năng | `TC_FUNC_18` | `UC-U7` | Xử lý gián đoạn mạng và thử lại khi tải Drive | Tải danh mục khi mạng ngắt -> Kết nối lại và bấm 'Thử lại' | Bắt lỗi mạng an toàn và khôi phục tải thành công | **Passed** |
+| Chức năng | `TC_FUNC_19` | `UC-U6` | Đọc sách định dạng EPUB theo từng chương | Mở sách EPUB từ Kệ sách -> Đọc nội dung và chuyển chương | Bóc tách XHTML và hiển thị văn bản sắc nét, đúng cấu trúc chương | **Passed** |
+| Chức năng | `TC_FUNC_20` | `UC-U10` | Tự động tính và lưu phần trăm (%) tiến độ đọc | Đọc sách và cuộn trang -> Thoát ra màn hình Kệ sách | Tiến độ đọc (%) được cập nhật chính xác trên thẻ sách | **Passed** |
+| Chức năng | `TC_FUNC_21` | `UC-U6` | Đọc tài liệu PDF và trích xuất văn bản sang trợ lý dịch Ellie | Mở tệp PDF, thu phóng trang -> Bấm nút dịch (🌐) trên AppBar | Trang PDF rõ nét; trích xuất văn bản trang hiện tại sang Ellie Chat | **Passed** |
+| Chức năng | `TC_FUNC_22` | `UC-U6` | Đọc tệp văn bản thuần TXT tiếng Việt | Mở tệp TXT từ Kệ sách -> Cuộn đọc văn bản | Giải mã UTF-8 chuẩn xác, không lỗi phông chữ tiếng Việt | **Passed** |
+| Chức năng | `TC_FUNC_23` | `UC-U6` | Tùy chỉnh phông chữ, cỡ chữ và màu nền trình đọc | Mở menu cài đặt đọc -> Đổi phông chữ, cỡ chữ, màu nền | Giao diện đọc áp dụng ngay lập tức các tùy chỉnh | **Passed** |
+| Chức năng | `TC_FUNC_24` | `UC-U6` | Đọc sách tự động bằng giọng nói (TTS) | Bấm icon Loa tại màn hình đọc -> Chỉnh tốc độ đọc, chuyển đoạn | Phát âm tiếng Việt chuẩn xác, đồng bộ đoạn văn đang đọc | **Passed** |
+| Chức năng | `TC_FUNC_25` | `UC-A1` | Gửi bình luận trong mục Cộng đồng | Đăng nhập tài khoản hợp lệ -> Nhập bình luận và bấm 'Gửi' | Bình luận được đẩy lên Firestore và hiển thị tức thì | **Passed** |
+| Chức năng | `TC_FUNC_26` | `UC-A1` | Kiểm duyệt và lọc từ ngữ vi phạm trong Cộng đồng | Nhập bình luận chứa từ cấm hoặc Admin xóa tin nhắn vi phạm | Từ cấm bị lọc/chặn hoặc xóa khỏi luồng thảo luận | **Passed** |
+| Chức năng | `TC_FUNC_27` | `UC-U10` | Xem bảng thống kê số lượng sách và tình trạng đọc | Vào Cá nhân -> Xem thẻ thống kê Kệ sách | Hiển thị chính xác số liệu Tổng, Đang đọc, Offline, Drive | **Passed** |
+| Bảo mật | `TC_SEC_01` | `UC-U1` | Mã hóa mật khẩu bằng PBKDF2-HMAC-SHA256 | Đăng ký tài khoản local mới -> Kiểm tra SharedPreferences | Áp dụng 120.000 vòng + salt 16 bytes, không lưu plaintext | **Passed** |
+| Bảo mật | `TC_SEC_02` | `UC-C1` | Tự động nâng cấp mã hóa tài khoản cũ (Legacy Migration) | Giả lập tài khoản cũ lưu mật khẩu thô -> Đăng nhập đúng mật khẩu | Tự động kích hoạt hàm băm PBKDF2 nâng cấp tài khoản an toàn | **Passed** |
+| Bảo mật | `TC_SEC_03` | `UC-C2` | Firestore Rules: Cô lập dữ liệu cá nhân giữa các người dùng | Dùng User A gửi truy vấn đọc/ghi kho sách của User B | Từ chối truy cập (Permission Denied 403) | **Passed** |
+| Bảo mật | `TC_SEC_04` | `UC-A1` | Firestore Rules: Chặn ghi cộng đồng nếu chưa xác minh email | Dùng tài khoản chưa verify email ghi dữ liệu cộng đồng | Yêu cầu bị từ chối bảo vệ diễn đàn khỏi spam bot | **Passed** |
+| Bảo mật | `TC_SEC_05` | `UC-A1` | Firestore Rules: Chặn người dùng tự nâng quyền Admin | Tài khoản thường cố tình cập nhật trường role: 'admin' | Yêu cầu bị chặn đứng, ngăn tấn công leo thang đặc quyền | **Passed** |
+| Bảo mật | `TC_SEC_06` | `UC-A1` | Xác thực quyền Quản trị viên qua Firebase Custom Claims | Đăng nhập Admin -> Kiểm tra AdminClaimReader và trang quản trị | Chỉ cấp quyền khi token chứa claim admin == true từ server | **Passed** |
+| Bảo mật | `TC_SEC_07` | `UC-A1` | Plugin Loader: Chặn tấn công Path Traversal bằng Regex | Cài đặt plugin có ID chứa '../' hoặc ký tự cấm | Hàm validatePluginId từ chối 100% ID độc hại | **Passed** |
+| Bảo mật | `TC_SEC_08` | `UC-U7` | Plugin Loader: Chặn Zip Bomb (> 64MB hoặc tỷ lệ nén > 100x) | Nạp tệp ZIP nén tỷ lệ cao hoặc vượt dung lượng | Hủy giải nén lập tức khi vượt ngưỡng 64MB hoặc 100x | **Passed** |
+| Bảo mật | `TC_SEC_09` | `UC-U3` | Thực thi kịch bản JS nguồn truyện trong Isolate Sandbox | Thực thi kịch bản JS lỗi timeout/parse error qua VBookEngine | Bắt giữ mã lỗi EXEC_TIMEOUT, PARSE_ERROR, không gây văng app | **Passed** |
+| Bảo mật | `TC_SEC_10` | `UC-U3` | Kiểm soát an toàn kết nối mạng khi nạp nguồn ngoài | Kiểm tra URL nguồn truyện sử dụng giao thức HTTP/HTTPS | Cảnh báo và kiểm soát chặt chẽ các kết nối không mã hóa | **Passed** |
+| Bảo mật | `TC_SEC_11` | `UC-A1` | Làm sạch chuỗi đầu vào chống tiêm mã HTML/XSS | Gửi tin nhắn chứa thẻ <script> độc hại | Chỉ lưu văn bản thuần, triệt tiêu nguy cơ XSS | **Passed** |
+| Bảo mật | `TC_SEC_12` | `UC-U6` | Chặn tấn công XXE / External DTD trong tệp EPUB | Nạp tệp EPUB chứa khai báo External DTD độc hại | Khóa nạp thực thể bên ngoài, trình đọc an toàn không bị treo | **Passed** |
+| Bảo mật | `TC_SEC_13` | `UC-A1` | Bảo vệ khóa API (Gemini & Google Drive) không lộ trên Git | Kiểm tra biến môi trường .env và bộ xác thực khóa AIzaSy / AQ. | Không lộ API key trong mã nguồn; xác thực định dạng khóa chuẩn xác | **Passed** |
+| Hiệu năng | `TC_PERF_01` | `UC-U3` | Thời gian phản hồi tải danh mục Google Drive (< 1.500ms) | Mở tab Khám phá qua kết nối tiêu chuẩn | Thời gian phản hồi đạt ~50ms-850ms, mượt mà | **Passed** |
+| Hiệu năng | `TC_PERF_02` | `UC-U4` | Chèn hàng loạt (Bulk Insert) 5.000 bản ghi SQLite | Chạy benchmark chèn 5.000 bản ghi metadata theo batch 100 | Hoàn tất trong 14.956 ms (~2,99 ms/bản ghi), đạt ngưỡng < 20s | **Passed** |
+| Hiệu năng | `TC_PERF_03` | `UC-U4` | Quét lại (Rescan) 5.000 bản ghi không thay đổi (< 3s) | Chạy quét lại toàn bộ kho 5.000 bản ghi khi metadata không đổi | Xác nhận 0 written / 5.000 unchanged chỉ trong 785 ms | **Passed** |
+| Hiệu năng | `TC_PERF_04` | `UC-U4` | Tốc độ tìm kiếm tiếng Việt trên 5.000 bản ghi (< 50ms) | Thực thi truy vấn tìm kiếm trên tập 5.000 bản ghi | Đạt p50 = 7.872 µs (7,87 ms), p95 = 12.182 µs (12,18 ms) | **Passed** |
+| Hiệu năng | `TC_PERF_05` | `UC-U4` | Duyệt phân trang toàn bộ 5.000 bản ghi SQLite (< 3s) | Lần lượt phân trang duyệt toàn bộ 5.000 bản ghi | Hoàn tất duyệt toàn bộ các trang chỉ trong 871 ms | **Passed** |
+| Hiệu năng | `TC_PERF_06` | `UC-U4` | Chống tấn công SQL Injection vào bộ tìm kiếm SQLite | Truyền chuỗi độc hại (%' OR 1=1 --) vào ô tìm kiếm | Parameterized Query xử lý như văn bản thường, trả về 0 kết quả | **Passed** |
+| Hiệu năng | `TC_PERF_07` | `UC-U9` | Kiểm tra tính toàn vẹn khóa ngoại SQLite (PRAGMA check) | Chạy lệnh kiểm tra PRAGMA foreign_key_check | Trả về 0 lỗi vi phạm, cơ sở dữ liệu toàn vẹn 100% | **Passed** |
+| Giao diện | `TC_UI_01` | `UC-U8` | Chuyển đổi giao diện Sáng / Tối (Dark / Light Theme) | Chuyển đổi công tắc giao diện Sáng / Tối | Màu sắc giao diện chuyển đổi tức thì, đồng bộ toàn ứng dụng | **Passed** |
+| Giao diện | `TC_UI_02` | `UC-U4` | Hiển thị tương thích đa độ phân giải & tỷ lệ phóng chữ | Kiểm tra trên khung hình 320x640..412x800 với Text Scale 1.0, 1.3, 1.5 | 0 lỗi tràn khung hình (Overflow), bố cục cân đối | **Passed** |
+| Giao diện | `TC_UI_03` | `UC-U6` | Giao diện thanh điều khiển TTS ở chế độ dọc và ngang | Bật TTS đọc sách ở cả Portrait và Landscape với Text Scale 1.5 | Thanh điều khiển vừa vặn, các nút bấm nhạy và không tràn viền | **Passed** |
+| Giao diện | `TC_UI_04` | `UC-U3` | Chỉ báo tiến trình lập chỉ mục và trạng thái lỗi nguồn | Quan sát banner lập chỉ mục và thử lại khi nguồn lỗi | Hiển thị rõ tiến độ lập chỉ mục và cho phép bấm thử lại | **Passed** |
+| Tự động hóa | `TC_AUTO_01` | `Toàn cục` | Phân tích cú pháp mã nguồn tĩnh (flutter analyze) | Chạy lệnh flutter analyze | No issues found! (0 lỗi, 0 cảnh báo trong 6,1 giây) | **Passed** |
+| Tự động hóa | `TC_AUTO_02` | `Toàn cục` | Chạy tự động toàn bộ 42 tệp Test Suite (flutter test) | Chạy lệnh flutter test | 00:33 +402: All tests passed! (402/402 test cases đạt Pass) | **Passed** |
+| Tự động hóa | `TC_AUTO_03` | `Toàn cục` | Kiểm thử khởi chạy Khói (App Smoke Test) | Chạy test/widget_test.dart | SplashScreen chuyển sang HomeScreen thành công (+0ms) | **Passed** |
+| Tự động hóa | `TC_AUTO_04` | `Toàn cục` | Đóng gói tự động bản cài đặt Release APK | Chạy lệnh flutter build apk --release | Xuất tệp app-release.apk (93,6 MB) thành công | **Passed** |

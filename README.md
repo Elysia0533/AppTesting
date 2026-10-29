@@ -20,23 +20,27 @@ Kho lưu trữ hồ sơ kiểm định, tài liệu thiết kế kiểm thử (c
 | **Sinh viên thực hiện** | **Trần Tiến Đức** |
 | **Mã số sinh viên** | **`23010777`** |
 | **Hình thức thực hiện** | Cá nhân |
-| **Đối tượng kiểm thử (SUT)** | Ứng dụng đọc sách/truyện đa định dạng **vBook Reader** (`v1.0.0` Alpha $
-ightarrow$ `v1.1.0+2` Release) |
+| **Đối tượng kiểm thử (SUT)** | Ứng dụng đọc sách/truyện đa định dạng **vBook Reader** (`v1.0.0` Alpha → `v1.1.0+2` Release) |
 
 ---
 
 ## 2. Danh mục Tài liệu Kiểm định Chất lượng Phần mềm (`docs/`)
 
-Toàn bộ tài liệu đặc tả kiểm thử theo chuẩn **IEEE 829** và **ISO/IEC 25010** được tổ chức tại thư mục [`docs/`](./docs):
+Toàn bộ tài liệu đặc tả kiểm thử theo chuẩn **IEEE 829**, **ISO/IEC 25010** và hồ sơ kỹ thuật của hệ thống được tổ chức tại thư mục [`docs/`](./docs):
 
+### Hồ sơ Kiểm thử theo chuẩn IEEE 829 & ISO/IEC 25010
 1. **[`01_Test_Plan_IEEE829.md`](./docs/01_Test_Plan_IEEE829.md)**: Kế hoạch kiểm thử phần mềm (Mục tiêu, Phạm vi In-scope/Out-of-scope, Lịch trình, Tài nguyên, Chiến lược kiểm thử 4 tầng, Tiêu chí Entry/Exit/Acceptance).
 2. **[`02_Test_Design_Specification.md`](./docs/02_Test_Design_Specification.md)**: Thiết kế ca kiểm thử Hộp đen (*Phân vùng tương đương EP, Giá trị biên BVA, Bảng quyết định Decision Table, Chuyển trạng thái State Transition*) và Hộp trắng (*Đồ thị luồng điều khiển CFG, Độ phức tạp Cyclomatic $V(G)=6$, Basis Paths*).
-3. **[`03_Requirements_Traceability_Matrix.md`](./docs/03_Requirements_Traceability_Matrix.md)**: Ma trận truy vết yêu cầu (RTM) ánh xạ 100% giữa 13 Use Case (`UC-C1` $
-ightarrow$ `UC-A1`), 55 Ca kiểm thử hệ thống và 42 tệp Unit/Widget/Integration Test.
+3. **[`03_Requirements_Traceability_Matrix.md`](./docs/03_Requirements_Traceability_Matrix.md)**: Ma trận truy vết yêu cầu (RTM) ánh xạ 100% giữa 13 Use Case (`UC-C1` → `UC-A1`), 55 Ca kiểm thử hệ thống và 42 tệp Unit/Widget/Integration Test.
 4. **[`04_System_Test_Cases.md`](./docs/04_System_Test_Cases.md)** & **[`04_System_Test_Cases.csv`](./docs/04_System_Test_Cases.csv)**: Đặc tả chi tiết và kết quả thực thi 55 Ca kiểm thử hệ thống (`TC_FUNC_01..27`, `TC_SEC_01..13`, `TC_PERF_01..07`, `TC_UI_01..04`, `TC_AUTO_01..04`).
-5. **[`05_Defect_Tracking_Log.md`](./docs/05_Defect_Tracking_Log.md)**: Nhật ký quản lý vòng đời lỗi và phân tích nguyên nhân gốc rễ cho 6 Defect phát hiện ở Vòng 1 (`DEF-01` $
-ightarrow$ `DEF-06`).
+5. **[`05_Defect_Tracking_Log.md`](./docs/05_Defect_Tracking_Log.md)**: Nhật ký quản lý vòng đời lỗi và phân tích nguyên nhân gốc rễ cho 6 Defect phát hiện ở Vòng 1 (`DEF-01` → `DEF-06`).
 6. **[`06_ISO25010_Quality_Evaluation.md`](./docs/06_ISO25010_Quality_Evaluation.md)**: Báo cáo tổng kết kiểm thử và đánh giá 8 đặc tính chất lượng theo tiêu chuẩn quốc tế **ISO/IEC 25010**.
+
+### Hồ sơ Kỹ thuật & Nhật ký Rà soát Hệ thống (SUT Docs)
+7. **[`TEST_PLAN.md`](./docs/TEST_PLAN.md)**: Đặc tả kịch bản kiểm thử chi tiết theo từng phân hệ chức năng và bảo mật của dự án.
+8. **[`BUGS.md`](./docs/BUGS.md)**: Hồ sơ phân tích chi tiết các lỗi kỹ thuật, lỗ hổng bảo mật và lịch sử khắc phục.
+9. **[`ARCHITECTURE.md`](./docs/ARCHITECTURE.md)**: Tài liệu kiến trúc hệ thống, luồng dữ liệu, cơ sở dữ liệu SQLite và tích hợp đám mây.
+10. **[`FEATURES.md`](./docs/FEATURES.md)**: Danh mục tính năng chi tiết của đối tượng kiểm thử **vBook Reader**.
 
 ---
 
@@ -45,14 +49,18 @@ ightarrow$ `DEF-06`).
 ```text
 AppTesting/
 ├── README.md                                     # Tổng quan dự án kiểm định & hướng dẫn chạy test
-├── docs/                                         # Bộ tài liệu kiểm định chuẩn IEEE 829 & ISO/IEC 25010
-│   ├── 01_Test_Plan_IEEE829.md                   # Kế hoạch kiểm thử (Test Plan)
+├── docs/                                         # Bộ tài liệu kiểm định chuẩn IEEE 829, ISO/IEC 25010 & SUT
+│   ├── 01_Test_Plan_IEEE829.md                   # Kế hoạch kiểm thử (Test Plan - IEEE 829)
 │   ├── 02_Test_Design_Specification.md           # Thiết kế kiểm thử Hộp đen & Hộp trắng (EP, BVA, CFG)
 │   ├── 03_Requirements_Traceability_Matrix.md    # Ma trận truy vết yêu cầu (RTM)
 │   ├── 04_System_Test_Cases.md                   # Đặc tả 55 Ca kiểm thử hệ thống (Markdown)
 │   ├── 04_System_Test_Cases.csv                  # Dữ liệu 55 Ca kiểm thử hệ thống (CSV/Excel)
 │   ├── 05_Defect_Tracking_Log.md                 # Nhật ký lỗi & Truy vết bản vá (DEF-01..DEF-06)
-│   └── 06_ISO25010_Quality_Evaluation.md         # Đánh giá chất lượng theo mô hình ISO/IEC 25010
+│   ├── 06_ISO25010_Quality_Evaluation.md         # Đánh giá chất lượng theo mô hình ISO/IEC 25010
+│   ├── TEST_PLAN.md                              # Kịch bản kiểm thử chi tiết theo phân hệ
+│   ├── BUGS.md                                   # Hồ sơ phân tích lỗi và bản vá kỹ thuật
+│   ├── ARCHITECTURE.md                           # Kiến trúc phần mềm vBook Reader (SUT)
+│   └── FEATURES.md                               # Đặc tả các tính năng của ứng dụng
 ├── test/                                         # 42 tệp kiểm thử tự động (402 Unit/Widget/Integration tests)
 │   ├── sec_001_local_account_test.dart           # Kiểm thử PBKDF2 SHA-256 & Legacy Migration (DEF-01)
 │   ├── vbook_engine_channel_test.dart            # Kiểm thử cô lập Isolate JS & bắt lỗi (DEF-02)
